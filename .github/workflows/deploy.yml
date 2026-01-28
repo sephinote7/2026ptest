@@ -1,4 +1,3 @@
-#.github > workflows > deply.yml
 name: Deploy To EC2
 on:
   push:
@@ -30,50 +29,44 @@ jobs:
         run: docker tag p-project:latest ${{ steps.login-ecr.outputs.registry }}/p-project:latest
 
       - name: Docker 이미지 푸시
+        run: docker push ${{ steps.login-ecr.outputs.registry }}/p-project:latest
+
+      # 여기서부터 주신 중복 내용을 '단계(Step)'로 인식하게 정렬했습니다.
+      - name: 중복 설정 시작 (Deploy To EC2)
         run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/p-project:latest
+          echo "Second configuration block starts here"
 
-      - name: Deploy To EC2
-        on:
-          push:
-            branches:
-              - main
+      - name: Second Github Repository 파일 불러오기
+        uses: actions/checkout@v4
 
-        jobs:
-          deploy:
-            runs-on: ubuntu-latest
-            steps:
-              - name: Github Repository 파일 불러오기
-                uses: actions/checkout@v4
+      - name: Second AWS Resources 설정
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
 
-              - name: AWS Resources 설정
-                uses: aws-actions/configure-aws-credentials@v4
-                with:
-                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                  aws-region: ap-northeast-2
+      - name: Second ECR 로그인
+        id: login-ecr-2
+        uses: aws-actions/amazon-ecr-login@v2
 
-              - name: ECR 로그인
-                id: login-ecr
-                uses: aws-actions/amazon-ecr-login@v2
+      - name: Second Docker 이미지 빌드
+        run: docker build -t p-project .
 
-              - name: Docker 이미지 빌드
-                run: docker build -t p-project .
+      - name: Second Docker 이미지 태그
+        run: docker tag p-project:latest ${{ steps.login-ecr-2.outputs.registry }}/p-project:latest
 
-              - name: Docker 이미지 태그
-                run: docker tag p-project:latest ${{ steps.login-ecr.outputs.registry }}/p-project:latest
+      - name: Second Docker 이미지 푸시
+        run: docker push ${{ steps.login-ecr-2.outputs.registry }}/p-project:latest
 
-              - name: Docker 이미지 푸시
-                run: docker push ${{ steps.login-ecr.outputs.registry }}/p-project:latest
-
-              - name: EC2에 배포
-                uses: appleboy/ssh-action@v1.0.3
-                with:
-                  host: ${{ secrets.EC2_HOST }}
-                  username: ubuntu
-                  key: ${{ secrets.EC2_PRIVATE_KEY }}
-                  script: |
-                    sudo docker pull ${{ steps.login-ecr.outputs.registry }}/p-project:latest || true
-                    sudo docker stop p-project || true
-                    sudo docker rm p-project || true
-                    sudo docker run -d --name p-project -p 8000:8000 ${{ steps.login-ecr.outputs.registry }}/p-project:latest
+      - name: EC2에 배포
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            sudo docker pull ${{ steps.login-ecr.outputs.registry }}/p-project:latest || true
+            sudo docker stop p-project || true
+            sudo docker rm p-project || true
+            sudo docker run -d --name p-project -p 8000:8000 ${{ steps.login-ecr.outputs.registry }}/p-project:latest
