@@ -1,4 +1,6 @@
+#.github > workflows > deploy.yml
 name: Deploy To EC2
+
 on:
   push:
     branches:
@@ -23,41 +25,13 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Docker 이미지 빌드
-        run: docker build -t p-project .
+        run: docker build -t p-project:latest .
 
       - name: Docker 이미지 태그
         run: docker tag p-project:latest ${{ steps.login-ecr.outputs.registry }}/p-project:latest
 
       - name: Docker 이미지 푸시
         run: docker push ${{ steps.login-ecr.outputs.registry }}/p-project:latest
-
-      # 여기서부터 주신 중복 내용을 '단계(Step)'로 인식하게 정렬했습니다.
-      - name: 중복 설정 시작 (Deploy To EC2)
-        run: |
-          echo "Second configuration block starts here"
-
-      - name: Second Github Repository 파일 불러오기
-        uses: actions/checkout@v4
-
-      - name: Second AWS Resources 설정
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
-
-      - name: Second ECR 로그인
-        id: login-ecr-2
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Second Docker 이미지 빌드
-        run: docker build -t p-project .
-
-      - name: Second Docker 이미지 태그
-        run: docker tag p-project:latest ${{ steps.login-ecr-2.outputs.registry }}/p-project:latest
-
-      - name: Second Docker 이미지 푸시
-        run: docker push ${{ steps.login-ecr-2.outputs.registry }}/p-project:latest
 
       - name: EC2에 배포
         uses: appleboy/ssh-action@v1.0.3
