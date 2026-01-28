@@ -1,0 +1,64 @@
+name: Deploy to Amazon EC2 with ECR
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. GitHub Repository 파일 불러오기
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. AWS Resources 설정 (자격 증명)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      # 3. ECR 로그인
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 4. Docker 이미지 빌드
+      - name: Build Docker image
+        run: |
+          docker build -t p-project .
+
+      # 5. Docker 이미지 태그 및 푸시
+      - name: Tag and Push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker tag p-project:latest $ECR_REGISTRY/p-project:latest
+          docker push $ECR_REGISTRY/p-project:latest
+
+      # 6. EC2에 배포
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            # ECR 로그인이 서버에서도 필요할 수 있습니다. 
+            # (만약 권한 에러가 난다면 서버에서 aws ecr get-login-password 명령어가 필요합니다.)
+
+            # 1. 최신 이미지 풀
+            sudo docker pull ${{ steps.login-ecr.outputs.registry }}/p-project:latest || true
+
+            # 2. 기존 컨테이너 중지 및 삭제
+            sudo docker stop p-project || true
+            sudo docker rm p-project || true
+
+            # 3. 새 컨테이너 실행
+            sudo docker run -d --name p-project -p 8000:8000 ${{ steps.login-ecr.outputs.registry }}/p-project:latest
+
+            # 4. 오래된 이미지 정리
+            sudo docker image prune -f
