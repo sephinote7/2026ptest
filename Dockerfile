@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 애플리케이션 소스 복사
-COPY main.py .
+COPY main.py
 
 # 포트 노출
 EXPOSE 8000
