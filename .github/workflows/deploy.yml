@@ -1,5 +1,5 @@
-#.github > workflows > deply.yml
 name: Deploy To EC2
+
 on:
   push:
     branches:
@@ -31,55 +31,17 @@ jobs:
 
       - name: Docker 이미지 푸시
         run: docker push ${{ steps.login-ecr.outputs.registry }}/p-project:latest
-        name: Deploy To EC2
-        
-        on:
-          push:
-            branches:
-              - main
 
-        jobs:
-          deploy:
-            runs-on: ubuntu-latest
-            steps:
-              - name: Github Repository 파일 불러오기
-                uses: actions/checkout@v4
-
-              - name: AWS Resources 설정
-                uses: aws-actions/configure-aws-credentials@v4
-                with:
-                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                  aws-region: ap-northeast-2
-
-              - name: ECR 로그인
-                id: login-ecr
-                uses: aws-actions/amazon-ecr-login@v2
-
-              - name: Docker 이미지 빌드
-                run: docker build -t p-project .
-
-              - name: Docker 이미지 태그
-                run: docker tag p-project:latest ${{ steps.login-ecr.outputs.registry }}/p-project:latest
-
-              - name: Docker 이미지 푸시
-                run: docker push ${{ steps.login-ecr.outputs.registry }}/p-project:latest
-                
-                
-                
-                
-
-              - name: EC2에 배포
-                uses: appleboy/ssh-action@v1.0.3
-                with:
-                  host: ${{ secrets.EC2_HOST }}
-                  username: ubuntu
-                  key: ${{ secrets.EC2_PRIVATE_KEY }}
-                  script: |
-                    sudo docker pull ${{ steps.login-ecr.outputs.registry }}/p-project:latest || true
-                    sudo docker stop p-project || true
-                    sudo docker rm p-project || true
-                    sudo docker run -d --name p-project -p 8000:8000 ${{ steps.login-ecr.outputs.registry }}/p-project:latest
-
-
-              
+      - name: EC2에 배포
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            # ECR에서 이미지를 당겨오기 위해 서버에서도 로그인이 필요할 수 있습니다.
+            # 만약 권한 에러가 난다면 이 스크립트 윗줄에 aws ecr 로그인 명령어를 추가해야 합니다.
+            sudo docker pull ${{ steps.login-ecr.outputs.registry }}/p-project:latest || true
+            sudo docker stop p-project || true
+            sudo docker rm p-project || true
+            sudo docker run -d --name p-project -p 8000:8000 ${{ steps.login-ecr.outputs.registry }}/p-project:latest
