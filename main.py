@@ -95,7 +95,7 @@ def calculate_scores(score_dict: dict) -> dict:
     }
 
 
-# API 엔드포인트
+# API 엔드포인트 1
 
 @app.get("/", tags=["기본"])
 async def root():
